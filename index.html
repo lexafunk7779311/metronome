@@ -224,7 +224,7 @@ details summary{cursor:pointer;font-weight:500;min-height:44px;display:flex;alig
 
 <div class="sizer" role="group" aria-label="Taille de l'affichage"><button data-z="-1" aria-label="Plus petit">A−</button><button data-z="1" aria-label="Plus grand">A+</button><button id="pipbtn">Vignette</button></div>
 <div id="toast" role="status"></div>
-<video id="pipv" playsinline muted autoplay aria-label="Aperçu de la vignette"></video>
+<video id="pipv" playsinline muted autoplay autopictureinpicture aria-label="Aperçu de la vignette"></video>
 
 <script>
 {
@@ -347,6 +347,9 @@ function preparePip(){
   }catch(e){}
 }
 document.addEventListener('pointerdown',()=>setTimeout(preparePip,0),{capture:true});
+// vignette automatique : s'ouvre quand on quitte l'appli (vers forScore), se ferme au retour
+try{pv.autoPictureInPicture=true}catch(e){}
+try{navigator.mediaSession.setActionHandler('nexttrack',()=>go(1));navigator.mediaSession.setActionHandler('previoustrack',()=>go(-1))}catch(e){}
 function openPip(){ // tout se fait dans le même geste, sans attente, sinon Safari refuse
   initAudio();preparePip();
   const fail=e=>toast("Vignette refusée par le navigateur ("+((e&&e.name)||'non gérée')+"). Ouvre la page dans un onglet Safari, pas depuis l'icône de l'écran d'accueil.");
