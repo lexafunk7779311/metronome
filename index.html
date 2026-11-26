@@ -113,7 +113,7 @@ details summary{cursor:pointer;font-weight:500;min-height:44px;display:flex;alig
 .sizer{position:fixed;left:8px;bottom:8px;display:flex;gap:6px;opacity:.55;z-index:5}
 .sizer:hover,.sizer:focus-within{opacity:1}
 .sizer button{min-height:36px;min-width:44px;font-size:14px;padding:0 8px;background:rgba(0,20,90,.5)}
-#pipv{position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none}
+#pipv{position:fixed;right:8px;bottom:8px;width:128px;height:72px;border-radius:10px;border:1px solid var(--edge);background:#0d2a8f;z-index:5;opacity:.85}
 #toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);max-width:min(92vw,520px);background:rgba(0,15,70,.92);border:1px solid var(--edge);border-radius:14px;padding:10px 14px;font-size:14px;display:none;z-index:6;text-align:center}
 #toast.on{display:block}
 .chk{display:flex;align-items:center;gap:8px;font-size:15px}.chk input{width:22px;height:22px;accent-color:#7fb0ff}
@@ -224,7 +224,7 @@ details summary{cursor:pointer;font-weight:500;min-height:44px;display:flex;alig
 
 <div class="sizer" role="group" aria-label="Taille de l'affichage"><button data-z="-1" aria-label="Plus petit">A−</button><button data-z="1" aria-label="Plus grand">A+</button><button id="pipbtn">Vignette</button></div>
 <div id="toast" role="status"></div>
-<video id="pipv" playsinline muted></video>
+<video id="pipv" playsinline muted autoplay aria-label="Aperçu de la vignette"></video>
 
 <script>
 {
@@ -335,17 +335,27 @@ function routeAudio(){
   if(viaPip){if(!streamDest)streamDest=ctx.createMediaStreamDestination();master.connect(streamDest);pv.muted=false}
   else{master.connect(ctx.destination);pv.muted=true}
 }
-async function openPip(){
-  initAudio();
+// la vidéo de la vignette est préparée dès le premier toucher, pour que l'ouverture soit immédiate
+function preparePip(){
+  if(pipStream||!ctx)return;
   try{
-    drawPip();
-    if(!pipStream){pipStream=cv.captureStream(30);if(!streamDest)streamDest=ctx.createMediaStreamDestination();streamDest.stream.getAudioTracks().forEach(t=>pipStream.addTrack(t));pv.srcObject=pipStream}
-    quiet=performance.now()+800;
-    await pv.play();
-    if(pv.requestPictureInPicture&&document.pictureInPictureEnabled!==false)await pv.requestPictureInPicture();
-    else if(pv.webkitSetPresentationMode)pv.webkitSetPresentationMode('picture-in-picture');
-    else throw new Error('pip');
-  }catch(e){toast("La vignette n'est pas disponible dans ce navigateur. Essaie dans Safari.")}
+    drawPip();pipStream=cv.captureStream(30);
+    if(!streamDest)streamDest=ctx.createMediaStreamDestination();
+    streamDest.stream.getAudioTracks().forEach(t=>pipStream.addTrack(t));
+    pv.srcObject=pipStream;quiet=performance.now()+800;pv.play().catch(()=>{});
+    (function loop(){if(!pipOn&&!document.hidden)drawPip();requestAnimationFrame(loop)})();
+  }catch(e){}
+}
+document.addEventListener('pointerdown',()=>setTimeout(preparePip,0),{capture:true});
+function openPip(){ // tout se fait dans le même geste, sans attente, sinon Safari refuse
+  initAudio();preparePip();
+  const fail=e=>toast("Vignette refusée par le navigateur ("+((e&&e.name)||'non gérée')+"). Ouvre la page dans un onglet Safari, pas depuis l'icône de l'écran d'accueil.");
+  try{
+    if(pv.paused){quiet=performance.now()+800;pv.play().catch(()=>{})}
+    if(pv.webkitSupportsPresentationMode&&pv.webkitSupportsPresentationMode('picture-in-picture')){pv.webkitSetPresentationMode('picture-in-picture')}
+    else if(pv.requestPictureInPicture){pv.requestPictureInPicture().catch(fail)}
+    else fail();
+  }catch(e){fail(e)}
 }
 function pipState(on){pipOn=on;routeAudio();tick(playing||pipOn);if(on){drawPip();toast('Vignette ouverte : pause / lecture de la vignette lance ou arrête le clic.')}}
 pv.addEventListener('enterpictureinpicture',()=>pipState(true));
